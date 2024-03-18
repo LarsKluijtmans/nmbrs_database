@@ -12,7 +12,7 @@ requires = [
 
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
-version_file = os.path.join(here, "src", "nmbrs", "__version__.py")
+version_file = os.path.join(here, "src", "nmbrs_database", "__version__.py")
 with open(version_file, "r", encoding="utf-8") as f:
     exec(f.read(), about)
 

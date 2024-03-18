@@ -2,11 +2,12 @@
 
 from abc import ABC, abstractmethod
 
-from nmbrs import Nmbrs
-from nmbrs.data_classes.debtor import Debtor
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+
+from nmbrs import Nmbrs
+from nmbrs.data_classes.debtor import Debtor
 
 
 class Database(ABC):

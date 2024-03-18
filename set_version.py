@@ -12,7 +12,7 @@ parser.add_argument("--version", default=None, help="New version number in the f
 args = parser.parse_args()
 
 # Define the path to the version file
-version_file = os.path.join("src", "nmbrs", "__version__.py")
+version_file = os.path.join("src", "nmbrs_database", "__version__.py")
 
 # Read the content of the version file
 with open(version_file, "r", encoding="utf-8") as f:
