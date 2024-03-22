@@ -8,47 +8,23 @@ BasicBase = declarative_base()
 
 
 class DebtorDB(BasicBase):
-    """Debtor Database Table Representation
-
-    Represents debtors in the database.
-
-    Attributes:
-        id (int): The unique identifier for the debtor.
-        name (str): The name of the debtor.
-        number (str): The debtor's number.
-        companies (relationship): Relationship with CompanyDB.
-    """
+    """Debtor table"""
 
     __tablename__ = "debtors"
     id = Column(Integer, primary_key=True)
     name = Column(String)
     number = Column(String)
+
     companies = relationship("CompanyDB", back_populates="debtor")
 
 
 class CompanyDB(BasicBase):
-    """Company Database Table Representation
-
-    Represents companies in the database.
-
-    Attributes:
-        id (int): The unique identifier for the company.
-        debtor_id (int): Foreign key referencing debtors.
-        number (str): The company's number.
-        name (str): The name of the company.
-        phone_number (str): The phone number of the company.
-        fax_number (str): The fax number of the company.
-        email (str): The email address of the company.
-        website (str): The website of the company.
-        loonaangifte_tijdvak (str): The loonaangifte tijdvak of the company.
-        kvk_number (str): The kvk number of the company.
-        debtor (relationship): Relationship with DebtorDB.
-    """
+    """Company table"""
 
     __tablename__ = "companies"
     id = Column(Integer, primary_key=True)
     debtor_id = Column(Integer, ForeignKey("debtors.id"))
-    number = Column(String)
+    number = Column(Integer)
     name = Column(String)
     phone_number = Column(String)
     fax_number = Column(String)
@@ -56,4 +32,30 @@ class CompanyDB(BasicBase):
     website = Column(String)
     loonaangifte_tijdvak = Column(String)
     kvk_number = Column(String)
+
     debtor = relationship("DebtorDB", back_populates="companies")
+    employees = relationship("EmployeeDB", back_populates="company")
+
+
+class EmployeeTypesDB(BasicBase):
+    """Employee Types table"""
+
+    __tablename__ = "employee_types"
+    id = Column(Integer, primary_key=True)
+    description = Column(String)
+
+    employees = relationship("EmployeeDB", back_populates="type")
+
+
+class EmployeeDB(BasicBase):
+    """Employee table"""
+
+    __tablename__ = "employees"
+    id = Column(Integer, primary_key=True)
+    company_id = Column(Integer, ForeignKey("companies.id"))
+    type_id = Column(Integer, ForeignKey("employee_types.id"))
+    number = Column(Integer)
+    name = Column(String)
+
+    company = relationship("CompanyDB", back_populates="employees")
+    type = relationship("EmployeeTypesDB", back_populates="employees")

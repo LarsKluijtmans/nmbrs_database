@@ -1,11 +1,10 @@
 """Abstract base class for databases."""
 
 from abc import ABC, abstractmethod
-
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-
 from nmbrs import Nmbrs
 from nmbrs.data_classes.debtor import Debtor
 
@@ -23,22 +22,49 @@ class Database(ABC):
         Initializes the Database.
 
         Args:
-            api (Nmbrs): Nmbrs API used to request info from nmbrs.
+            api (Nmbrs): Nmbrs API instance used to interact with nmbrs.
             db_url (str): Database URL.
-            base (declarative_base): Base used to create the database.
+            base (declarative_base): Base class used to create the database.
         """
         self.api = api
         self.engine = create_engine(db_url)
+        self.base = base
 
-        # Create tables based on provided base
+        # Create tables based on metabase
         base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
     @abstractmethod
-    def create(self, debtors: list[Debtor]):
+    def create(self, debtors: list[Debtor] = None) -> None:
         """
         Abstract method to create records in the database.
 
         Args:
-            debtors Variable length argument list.
+            debtors (list[Debtor]): List of Debtor objects to create records for.
         """
+
+    def query(self, query: str) -> any:
+        """
+        Execute a raw SQL query on the database.
+
+        Args:
+            query (str): SQL query to execute.
+
+        Returns:
+            any: Result of the query.
+        """
+        with self.engine.connect() as connection:
+            compiled_query = text(query)
+            result = connection.execute(compiled_query)
+            return result.fetchall()
+
+    def initialize(self) -> None:
+        """
+        Method to initialize the database connection.
+        """
+        try:
+            # Try to connect to the database
+            with self.engine.connect():
+                print("Database connected successfully!")
+        except OperationalError:
+            print("Database does not exist or could not be connected to.")

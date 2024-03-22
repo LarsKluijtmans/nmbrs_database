@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from .database import Database
 from ..models import BasicBase
-from ..models.basic_model import DebtorDB, CompanyDB
+from ..models.basic_model import DebtorDB, CompanyDB, EmployeeTypesDB, EmployeeDB
+from ..utils.session_scope import session_scope
 
 
 class BasicDatabase(Database):
@@ -28,40 +29,52 @@ class BasicDatabase(Database):
         """
         super().__init__(api, db_url, BasicBase)
 
-    def create(self, debtors: list[Debtor]):
+        self.employee_types = [1, 2, 3, 4, 5, 6, 7]
+
+    def create(self, debtors: list[Debtor] = None) -> None:
         """
         Create a basic database containing all the debtors, companies and employees.
 
         Args:
             debtors (list[Debtor]): List of debtors to include in the database.
         """
+        if not debtors:
+            return
+
+        # Get all data that only needs to be inserted once
+        with session_scope(self.Session) as session:
+            # Insert employee types into database
+            employee_types = self.api.employee.get_types()
+            employee_types_db = [EmployeeTypesDB(**employee_type.to_dict()) for employee_type in employee_types]
+            session.add_all(employee_types_db)
+
         with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(self.process_debtor, debtor) for debtor in debtors]
+            futures = [executor.submit(self._process_debtor, debtor) for debtor in debtors]
             for future in as_completed(futures):
                 future.result()
 
-    def process_debtor(self, debtor: Debtor):
+    def _process_debtor(self, debtor: Debtor):
         """
         Process a debtor and its associated companies.
 
         Args:
             debtor (Debtor): The debtor to process.
         """
-        session = self.Session()
+        with session_scope(self.Session) as session:
+            # Insert debtor into database
+            debtors_db = DebtorDB(**debtor.to_dict())
+            session.add(debtors_db)
+            session.commit()
 
-        # Insert debtor into database
-        debtors_db = DebtorDB(**debtor.to_dict())
-        session.add(debtors_db)
-        session.commit()
+            # Process companies associated with debtor
+            companies = self.api.company.get_by_debtor(debtor.id)
+            for company in companies:
+                self._process_company(debtor, company, session)
 
-        # Process companies associated with debtor
-        companies = self.api.company.get_by_debtor(debtor.id)
-        for company in companies:
-            self.process_company(debtor, company, session)
-
-    def process_company(self, debtor: Debtor, company: Company, session: Session):
+    def _process_company(self, debtor: Debtor, company: Company, session: Session):
         """
         Process a company associated with a debtor and insert it into the database.
+
 
         Args:
             debtor (Debtor): The debtor associated with the company.
@@ -71,3 +84,9 @@ class BasicDatabase(Database):
         company_db = CompanyDB(**company.to_dict(), debtor_id=debtor.id)
         session.add(company_db)
         session.commit()
+
+        for employee_type in self.employee_types:
+            employees = self.api.employee.get_by_company(company.id, employee_type)
+            employees_db = [EmployeeDB(**employee.to_dict(), company_id=company.id, type_id=employee_type) for employee in employees]
+            session.add_all(employees_db)
+            session.commit()
