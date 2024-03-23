@@ -11,14 +11,14 @@ class NmbrsDatabase:
     def __init__(
         self,
         api: Nmbrs,
-        db_url: str = "sqlite:///nmbrs.db",
+        db_url: str,
     ):
         """
         Initializes the NmbrsDatabase.
 
         Args:
             api (Nmbrs): Nmbrs API instance used to interact with Nmbrs.
-            db_url (str, optional): URL for the database. Defaults to "sqlite:///nmbrs.db".
+            db_url (str): URL for the database.
         """
         self.api = api
         self.db_url = db_url
@@ -43,16 +43,17 @@ class NmbrsDatabase:
         self.database = BasicDatabase(self.api, self.db_url)
         self.database.initialize()
 
-    def create_basic(self, debtors: list[Debtor] = None) -> None:
+    def create_basic(self, debtors: list[Debtor] = None, delete: bool = False) -> None:
         """
         Create a basic database containing all the debtors, companies, and employees.
 
         Args:
             debtors (list[Debtor], optional): List of debtors to include in the database. If None, all debtors are fetched.
+            delete (bool, optional): Delete existing database.
         """
         if debtors is None:
             debtors = self.api.debtor.get_all()
 
-        self.database = BasicDatabase(self.api, self.db_url)
+        self.database = BasicDatabase(self.api, self.db_url, delete=delete)
 
         self.database.create(debtors)

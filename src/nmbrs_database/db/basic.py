@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .database import Database
 from ..models import BasicBase
-from ..models.basic_model import DebtorDB, CompanyDB, EmployeeTypesDB, EmployeeDB
+from ..models.basic_model import DebtorDB, CompanyDB, EmployeeTypesDB, EmployeeDB, TagDB
 from ..utils.session_scope import session_scope
 
 
@@ -18,16 +18,18 @@ class BasicDatabase(Database):
     def __init__(
         self,
         api: Nmbrs,
-        db_url: str = "sqlite:///nmbrs.db",
+        db_url: str,
+        delete: bool = False,
     ):
         """
         Initializes the BasicDatabase.
 
         Args:
             api (Nmbrs): Nmbrs API used to request info from nmbrs.
-            db_url (str, optional): URL to connect to the database.
+            db_url (str): URL to connect to the database.
+            delete (bool, optional): Delete existing database.
         """
-        super().__init__(api, db_url, BasicBase)
+        super().__init__(api, db_url, BasicBase, delete)
 
         self.employee_types = [1, 2, 3, 4, 5, 6, 7]
 
@@ -49,11 +51,11 @@ class BasicDatabase(Database):
             session.add_all(employee_types_db)
 
         with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(self._process_debtor, debtor) for debtor in debtors]
+            futures = [executor.submit(self._debtor, debtor) for debtor in debtors]
             for future in as_completed(futures):
                 future.result()
 
-    def _process_debtor(self, debtor: Debtor):
+    def _debtor(self, debtor: Debtor):
         """
         Process a debtor and its associated companies.
 
@@ -62,16 +64,35 @@ class BasicDatabase(Database):
         """
         with session_scope(self.Session) as session:
             # Insert debtor into database
-            debtors_db = DebtorDB(**debtor.to_dict())
-            session.add(debtors_db)
+            debtor_db = DebtorDB(**debtor.to_dict())
+            debtor_db = session.add(debtor_db)
             session.commit()
 
-            # Process companies associated with debtor
-            companies = self.api.company.get_by_debtor(debtor.id)
-            for company in companies:
-                self._process_company(debtor, company, session)
+            self._debtor_tags(debtor_db, session)
 
-    def _process_company(self, debtor: Debtor, company: Company, session: Session):
+            # Process companies associated with debtor
+            companies = self.api.company.get_by_debtor(debtor_db.id)
+            for company in companies:
+                self._company(debtor, company, session)
+
+    # Debtor Info
+
+    def _debtor_tags(self, debtor: DebtorDB, session: Session):
+        tags = self.api.debtor.get_tags(debtor.id)
+        tags_db = [TagDB(**tag.to_dict()) for tag in tags]
+
+        for tag in tags_db:
+            existing_tag = session.query(TagDB).filter_by(
+                number=tag.number, hex_color=tag.hex_color, tag=tag.tag
+            ).first()
+            if existing_tag is None:
+                session.add(tag)
+            else:
+                tag = existing_tag
+            debtor.tags.append(tag)
+        session.commit()
+
+    def _company(self, debtor: Debtor, company: Company, session: Session):
         """
         Process a company associated with a debtor and insert it into the database.
 
